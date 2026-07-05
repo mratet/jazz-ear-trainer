@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { YoutubeStatus } from "@/app/generated/prisma";
+import type { YoutubeStatus } from "@prisma/client";
 
 export async function getAvailableVersions(standardId: string) {
   return db.version.findMany({
