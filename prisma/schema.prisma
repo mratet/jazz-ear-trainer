@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Standard {
+  id        String    @id
+  title     String
+  aliases   String[]
+  composer  String
+  year      Int
+  key       String
+  versions  Version[]
+  updatedAt DateTime  @updatedAt
+}
+
+model Version {
+  id            String        @id @default(cuid())
+  standardId    String
+  standard      Standard      @relation(fields: [standardId], references: [id])
+  artist        String
+  album         String?
+  year          Int?
+  shsId         String?
+  youtubeUrl    String?       @unique
+  youtubeStatus YoutubeStatus @default(UNCHECKED)
+  format        Format?
+  style         Style?
+  era           Era?
+  key           String?
+  titleOverride String?
+  themeTimecode Int?
+  lastFmTags    String[]
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([standardId, shsId])
+  @@index([standardId])
+  @@index([youtubeStatus])
+}
+
+enum YoutubeStatus {
+  AVAILABLE
+  UNAVAILABLE
+  GEO_RESTRICTED
+  NOT_FOUND
+  UNCHECKED
+}
+
+enum Format {
+  VOCAL
+  VOCAL_TRIO
+  SOLO_PIANO
+  TRIO
+  QUARTET
+  QUINTET
+  BIG_BAND
+  OTHER
+}
+
+enum Style {
+  BEBOP
+  COOL_JAZZ
+  HARD_BOP
+  MODAL
+  BOSSA_NOVA
+  LATIN
+  BALLAD
+  SWING
+  FREE_JAZZ
+  FUSION
+  CONTEMPORARY
+  OTHER
+}
+
+enum Era {
+  ERA_1920S
+  ERA_1930S
+  ERA_1940S
+  ERA_1950S
+  ERA_1960S
+  ERA_1970S
+  ERA_1980S
+  ERA_1990S
+  ERA_2000S
+  ERA_2010S
+  ERA_2020S
+  UNKNOWN
+}
