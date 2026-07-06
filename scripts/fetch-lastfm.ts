@@ -60,6 +60,14 @@ function yearToEra(year: number): Era {
   return "ERA_2020S";
 }
 
+function simplifyArtist(artist: string): string {
+  return artist
+    .split(/\s+[&,]\s+/)[0]
+    .replace(/\s+(Quartet|Trio|Quintet|Sextet|Septet|Orchestra|Big Band|Group|Ensemble|Band|All[ -]?Stars?)$/i, "")
+    .replace(/^The\s+/i, "")
+    .trim();
+}
+
 function inferStyle(tags: string[]): Style | null {
   for (const tag of tags) {
     const style = TAG_TO_STYLE[tag.toLowerCase()];
@@ -68,28 +76,31 @@ function inferStyle(tags: string[]): Style | null {
   return null;
 }
 
-async function fetchTags(
-  artist: string,
-  track: string,
-  apiKey: string
-): Promise<string[]> {
+async function apiGet(params: Record<string, string>, apiKey: string): Promise<unknown> {
   const url = new URL(LASTFM_BASE);
-  url.searchParams.set("method", "track.gettoptags");
-  url.searchParams.set("artist", artist);
-  url.searchParams.set("track", track);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   url.searchParams.set("api_key", apiKey);
   url.searchParams.set("format", "json");
-  url.searchParams.set("autocorrect", "1");
-
   const res = await fetch(url.toString());
-  const json = await res.json();
+  return res.json();
+}
+
+async function fetchTrackTags(artist: string, track: string, apiKey: string): Promise<string[]> {
+  const json = await apiGet({ method: "track.gettoptags", artist, track }, apiKey);
   const parsed = TopTagsResponseSchema.safeParse(json);
-
   if (!parsed.success || parsed.data.error) return [];
+  return (parsed.data.toptags?.tag ?? []).filter((t) => t.count > 0).map((t) => t.name.toLowerCase());
+}
 
-  return (parsed.data.toptags?.tag ?? [])
-    .filter((t) => t.count > 5)
-    .map((t) => t.name.toLowerCase());
+async function fetchArtistTags(artist: string, apiKey: string): Promise<string[]> {
+  const ArtistTagsSchema = z.object({
+    toptags: z.object({ tag: z.array(TagSchema) }).optional(),
+    error: z.number().optional(),
+  });
+  const json = await apiGet({ method: "artist.gettoptags", artist }, apiKey);
+  const parsed = ArtistTagsSchema.safeParse(json);
+  if (!parsed.success || parsed.data.error) return [];
+  return (parsed.data.toptags?.tag ?? []).filter((t) => t.count > 0).map((t) => t.name.toLowerCase());
 }
 
 async function main() {
@@ -112,16 +123,28 @@ async function main() {
   for (const v of versions) {
     await new Promise((r) => setTimeout(r, RATE_LIMIT_MS));
 
-    const tags = await fetchTags(v.artist, v.standard.title, apiKey);
+    const title = v.titleOverride ?? v.standard.title;
+    const simplified = simplifyArtist(v.artist);
+
+    // Essai 1 : artiste complet + titre (track-level)
+    let tags = await fetchTrackTags(v.artist, title, apiKey);
+
+    // Essai 2 : artiste simplifié + titre (supprime "Trio", "&...", etc.)
+    if (tags.length === 0 && simplified !== v.artist) {
+      await new Promise((r) => setTimeout(r, RATE_LIMIT_MS));
+      tags = await fetchTrackTags(simplified, title, apiKey);
+    }
+
+    // Essai 3 : tags de l'artiste (artist-level — plus fiable pour le jazz)
+    if (tags.length === 0) {
+      await new Promise((r) => setTimeout(r, RATE_LIMIT_MS));
+      tags = await fetchArtistTags(simplified, apiKey);
+    }
 
     if (tags.length === 0) {
-      const altTags = await fetchTags(v.artist, v.titleOverride ?? v.standard.title, apiKey);
-      if (altTags.length === 0) {
-        console.log(`  ✗ ${v.artist} — ${v.standard.title} (introuvable)`);
-        skipped++;
-        continue;
-      }
-      tags.push(...altTags);
+      console.log(`  ✗ ${v.artist} — ${title} (introuvable)`);
+      skipped++;
+      continue;
     }
 
     const inferredStyle = inferStyle(tags);
