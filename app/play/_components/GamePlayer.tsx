@@ -80,7 +80,7 @@ export function GamePlayer({
 
     function initPlayer() {
       const player = new window.YT.Player("yt-player", {
-        videoId,
+        videoId: videoId ?? undefined,
         playerVars: { autoplay: 1, controls: 0, disablekb: 1, fs: 0, rel: 0 },
         events: {
           onReady: (e) => {

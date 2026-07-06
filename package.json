@@ -16,6 +16,12 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "seed": "tsx scripts/seed-fixtures.ts",
+    "seed:shs": "tsx scripts/seed-shs.ts",
+    "validate": "tsx scripts/validate.ts",
+    "check": "tsx scripts/check-youtube.ts",
+    "fetch:lastfm": "tsx scripts/fetch-lastfm.ts",
+    "apply:overrides": "tsx scripts/apply-overrides.ts",
+    "pipeline": "pnpm run seed:shs && pnpm run check && pnpm run fetch:lastfm && pnpm run apply:overrides",
     "postinstall": "prisma generate"
   },
   "dependencies": {

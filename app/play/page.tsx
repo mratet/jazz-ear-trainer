@@ -53,7 +53,7 @@ export default async function PlayPage({
 
   return (
     <GamePlayer
-      version={version}
+      version={{ ...version, youtubeUrl: version.youtubeUrl! }}
       catalogue={catalogue}
       sessionVersionIds={sessionIds}
       currentIndex={index}
